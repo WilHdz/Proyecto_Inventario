@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../src/main.css">
+    <title>Productos</title>
+</head>
+<body>
+    <h1>Lista de Productos</h1>
+    <table id="productos-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Precio</th>
+                <th>Cantidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se insertarán aquí -->
+        </tbody>
+    </table>
+
+    <h1>Lista de Transacciones</h1>
+    <table id="transacciones-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tipo</th>
+                <th>ID Producto</th>
+                <th>Cantidad</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se insertarán aquí -->
+        </tbody>
+    </table>
+
+    <h1>Lista de Usuarios</h1>
+    <table id="usuarios-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Contraseña</th>
+            </tr>
+        </thead>
+        <tbody>
+             <!-- Los datos se insertarán aquí -->
+        </tbody>
+    </table>
+
+    <script>
+        async function obtenerDatos(url, tableId) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const tableBody = document.querySelector(`#${tableId} tbody`);
+                tableBody.innerHTML = ''; 
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    Object.values(item).forEach(value => {
+                        const cell = document.createElement('td');
+                        cell.textContent = value;
+                        row.appendChild(cell);
+                    });
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error(`Error al obtener datos de ${url}:`, error);
+            }
+        }
+
+        function shortPolling() {
+            setInterval(() => {
+                obtenerDatos('http://localhost:3000/api/short-polling', 'productos-table');
+            }, 5000); 
+        }
+
+        function longPolling() {
+            const fetchUpdates = async () => {
+                try {
+                    const response = await fetch('http://localhost:3000/api/long-polling');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    const tableBody = document.querySelector('#transacciones-table tbody');
+                    tableBody.innerHTML = '';
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+                        Object.values(item).forEach(value => {
+                            const cell = document.createElement('td');
+                            cell.textContent = value;
+                            row.appendChild(cell);
+                        });
+                        tableBody.appendChild(row);
+                    });
+                    
+                    fetchUpdates();
+                } catch (error) {
+                    console.error('Error en long polling:', error);
+                }
+            };
+            fetchUpdates();
+           
+          
+        }
+  
+    
+        function setupWebSocket() {
+            const ws = new WebSocket('ws://localhost:3000');
+            ws.onopen = () => {
+                console.log('Conectado al WebSocket');
+                ws.send(JSON.stringify({ action: 'getProductos' }));
+            };
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.event === 'getProductos' || data.event === 'newProducto') {
+                    const tableBody = document.querySelector('#productos-table tbody');
+                    tableBody.innerHTML = '';
+                    data.data.forEach(item => {
+                        const row = document.createElement('tr');
+                        Object.values(item).forEach(value => {
+                            const cell = document.createElement('td');
+                            cell.textContent = value;
+                            row.appendChild(cell);
+                        });
+                        tableBody.appendChild(row);
+                    });
+                }
+            };
+            ws.onclose = () => {
+                console.log('Desconectado del WebSocket');
+            };
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        window.onload = () => {
+            
+            obtenerDatos('http://localhost:3000/api/productos', 'productos-table');
+            obtenerDatos('http://localhost:3000/api/transacciones', 'transacciones-table');
+            obtenerDatos('http://localhost:3000/api/usuarios', 'usuarios-table');
+
+            
+            shortPolling();
+            longPolling();
+            setupWebSocket();
+        };
+    </script>
+</body>
+</html>
