@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -83,79 +83,86 @@
                 obtenerDatos('http://localhost:3000/api/short-polling', 'productos-table');
             }, 5000); 
         }
-
-        function longPolling() {
-            const fetchUpdates = async () => {
-                try {
-                    const response = await fetch('http://localhost:3000/api/long-polling');
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const data = await response.json();
-                    const tableBody = document.querySelector('#transacciones-table tbody');
-                    tableBody.innerHTML = '';
-                    data.forEach(item => {
-                        const row = document.createElement('tr');
-                        Object.values(item).forEach(value => {
-                            const cell = document.createElement('td');
-                            cell.textContent = value;
-                            row.appendChild(cell);
-                        });
-                        tableBody.appendChild(row);
-                    });
-                    
-                    fetchUpdates();
-                } catch (error) {
-                    console.error('Error en long polling:', error);
+        async function longPolling() {
+            try {
+                const response = await fetch('http://localhost:3000/api/long-polling');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            };
-            fetchUpdates();
-           
-          
+                const data = await response.json();
+                const tableBody = document.querySelector('#transacciones-table tbody');
+                tableBody.innerHTML = '';
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    Object.values(item).forEach(value => {
+                        const cell = document.createElement('td');
+                        cell.textContent = value;
+                        row.appendChild(cell);
+                    });
+                    tableBody.appendChild(row);
+                });
+                longPolling();
+                
+            } catch (error) {
+                console.error('Error en long polling:', error);
+                
+                setTimeout(longPolling, 5000);
+            }
+        
         }
+        
   
     
         function setupWebSocket() {
             const ws = new WebSocket('ws://localhost:3000');
+          
             ws.onopen = () => {
-                console.log('Conectado al WebSocket');
-                ws.send(JSON.stringify({ action: 'getProductos' }));
+              console.log('Conectado al WebSocket');
+              ws.send(JSON.stringify({ action: 'getUsuarios' }));
             };
+          
             ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.event === 'getProductos' || data.event === 'newProducto') {
-                    const tableBody = document.querySelector('#productos-table tbody');
-                    tableBody.innerHTML = '';
-                    data.data.forEach(item => {
-                        const row = document.createElement('tr');
-                        Object.values(item).forEach(value => {
-                            const cell = document.createElement('td');
-                            cell.textContent = value;
-                            row.appendChild(cell);
-                        });
-                        tableBody.appendChild(row);
-                    });
-                }
+              const data = JSON.parse(event.data);
+          
+              if (data.event === 'getUsuarios' || data.event === 'usuarioCreado') {
+                const tableBody = document.querySelector('#usuarios-table tbody');
+                tableBody.innerHTML = '';
+          
+                data.data.forEach(item => {
+                  const row = document.createElement('tr');
+          
+                  Object.values(item).forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                  });
+          
+                  tableBody.appendChild(row);
+                });
+              }
             };
+          
             ws.onclose = () => {
-                console.log('Desconectado del WebSocket');
+              console.log('Desconectado del WebSocket');
             };
+          
             ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+              console.error('WebSocket error:', error);
             };
-        }
-
-        window.onload = () => {
-            
+          }
+          
+          window.onload = () => {
             obtenerDatos('http://localhost:3000/api/productos', 'productos-table');
             obtenerDatos('http://localhost:3000/api/transacciones', 'transacciones-table');
             obtenerDatos('http://localhost:3000/api/usuarios', 'usuarios-table');
-
-            
+          
             shortPolling();
             longPolling();
             setupWebSocket();
-        };
+          };
+
+        
     </script>
 </body>
 </html>
+
