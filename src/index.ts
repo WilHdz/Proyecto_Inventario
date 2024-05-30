@@ -1,4 +1,4 @@
-import express from 'express';
+ import express from 'express';
 import bodyParser from 'body-parser';
 import http from 'http';
 import WebSocket from 'ws';
@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import router from './Routes/routes';
 import cors from 'cors'; 
 import { obtenerProductos } from './Models/ProductosModelo';
-import { crearProducto } from './Models/ProductosModelo';
+import { getAllUsuarios  } from './Models/UsuariosModelo';
+import { crearUsuario } from './Models/UsuariosModelo';
 import { obtenerTransacciones } from './Models/TransaccionesModelo';
 import EventEmitter from 'events';
 
@@ -56,6 +57,7 @@ app.get('/api/long-polling', async (req, res) => {
     const transacciones = await obtenerTransacciones();
     res.write(`data: ${JSON.stringify(transacciones)}\n\n`);
   });
+  
 });
 
 export const notificarActualizaciontransacciones = async () => {
@@ -77,38 +79,46 @@ wss.on('connection', (ws) => {
   console.log('Cliente conectado');
 
   ws.on('message', (data) => {
-    const dataJson = JSON.parse(data.toString());
+    try {
+      console.log('Datos recibidos:', data.toString());
+      const dataJson = JSON.parse(data.toString());
+      console.log('Datos analizados:', dataJson);
 
-    switch (dataJson.action) {
-      case 'getProductos':
-        obtenerProductos().then(productos => {
-          ws.send(JSON.stringify({ event: 'getProductos', data: productos }));
-        }).catch(error => {
-          console.error('Error al obtener productos:', error);
-          ws.send(JSON.stringify({ error: 'Error al obtener productos' }));
-        });
-        break;
-      case 'createProducto':
-        const { nombre, descripcion, precio, cantidad } = dataJson.data;
-        crearProducto({ nombre, descripcion, precio, cantidad }).then(() => {
-          obtenerProductos().then(productos => {
-            ws.send(JSON.stringify({ event: 'productoCreado', data: productos }));
-            wss.clients.forEach(client => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ event: 'productoCreado', data: productos }));
-              }
+      switch (dataJson.action) {
+        case 'getUsuarios':
+          getAllUsuarios().then(usuarios => {
+            ws.send(JSON.stringify({ event: 'getUsuarios', data: usuarios }));
+          }).catch(error => {
+            console.error('Error al obtener usuarios:', error);
+            ws.send(JSON.stringify({ error: 'Error al obtener usuarios' }));
+          });
+          break;
+        case 'createUsuario':
+          const { nombre, email, contraseña } = dataJson.data;
+          crearUsuario({ nombre, email, contraseña }).then(() => {
+            getAllUsuarios().then(usuarios => {
+              ws.send(JSON.stringify({ event: 'usuarioCreado', data: usuarios }));
+              wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ event: 'usuarioCreado', data: usuarios }));
+                }
+              });
+            }).catch(error => {
+              console.error('Error al obtener usuarios:', error);
+              ws.send(JSON.stringify({ error: 'Error al obtener usuarios' }));
             });
           }).catch(error => {
-            console.error('Error al obtener productos:', error);
-            ws.send(JSON.stringify({ error: 'Error al obtener productos' }));
+            console.error('Error al crear usuario:', error);
+            ws.send(JSON.stringify({ error: 'Error al crear usuario' }));
           });
-        }).catch(error => {
-          console.error('Error al crear producto:', error);
-          ws.send(JSON.stringify({ error: 'Error al crear producto' }));
-        });
-        break;
-      default:
-        ws.send(JSON.stringify({ error: 'Acción no válida' }));
+          break;
+        default:
+          ws.send(JSON.stringify({ error: 'Acción no válida' }));
+      }
+    } catch (error) {
+      console.error('Error al analizar los datos recibidos:', error);
+      console.error('Datos recibidos:', data.toString());
+      ws.send(JSON.stringify({ error: 'Datos no válidos' }));
     }
   });
 
